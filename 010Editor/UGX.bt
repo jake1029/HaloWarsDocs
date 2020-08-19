@@ -149,7 +149,7 @@ string UGX_CachedDataBoneToString(UGX_CachedDataBone& bone)
 	return PackedStringToString(bone.Name);
 }
 
-struct UGX_CachedDataAccessory //bugged offset for accessories.
+struct UGX_CachedDataAccessory
 {
 	int FirstBone;
 	int NumberOfBones;
