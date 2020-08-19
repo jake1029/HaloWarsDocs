@@ -153,9 +153,10 @@ typedef struct (boolean _64bit)
 {
 	if (_64bit)
 	{
+		uint : 32;
 		uint Length;
 		uint : 32;
-		uint64 Offset	<format=hex>;
+		uint Offset;
 	}
 	else
 	{
@@ -163,7 +164,31 @@ typedef struct (boolean _64bit)
 		uint Offset		<format=hex>;
 	}
 } PackedArrayHeader <read=PackedArrayHeaderToString>;
+typedef struct (boolean _64bit)
+{
+	if (_64bit)
+	{
+		uint Length;
+		uint : 32;
+		uint Offset;
+		uint : 32;
+	}
+	else
+	{
+		uint Length;
+		uint Offset		<format=hex>;
+	}
+} PackedArrayHeaderLE <read=PackedArrayHeaderLEToString>; // not necessarily LE, but is needed to read LE HWDE .UGX files' accessory section indices.
 string PackedArrayHeaderToString(PackedArrayHeader& header)
+{
+	local string s = "EMPTY";
+	if (header.Length > 0)
+	{
+		SPrintf(s, "%08Xh  %08Xh", header.Length, header.Offset);
+	}
+	return s;
+}
+string PackedArrayHeaderLEToString(PackedArrayHeaderLE& header) // clone of above for LE type.
 {
 	local string s = "EMPTY";
 	if (header.Length > 0)
@@ -174,6 +199,18 @@ string PackedArrayHeaderToString(PackedArrayHeader& header)
 }
 
 boolean SeekToPackedArray(PackedArrayHeader& header, uint64& original_pos)
+{
+	if (header.Length > 0)
+	{
+		original_pos = FTell();
+		FSeek(kPackedDataBaseOffset + header.Offset);
+		return true;
+	}
+
+	original_pos = UINT64_MAX;
+	return false;
+}
+boolean SeekToPackedArrayLE(PackedArrayHeaderLE& header, uint64& original_pos) // clone of above for LE type.
 {
 	if (header.Length > 0)
 	{

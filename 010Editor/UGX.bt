@@ -117,9 +117,13 @@ struct UGX_CachedDataSectionV4
 
 	UnivertPacker BaseVertPacker;
 
+    int : 32;
+
 	bool RigidOnly;
+	
 	byte : 8;
 	int16 : 16;
+    int : 32;
 
 	local uint64 original_pos;
 	if (SeekToPackedArray(LocalToGlobalBoneRemapArray, original_pos))
@@ -145,16 +149,16 @@ string UGX_CachedDataBoneToString(UGX_CachedDataBone& bone)
 	return PackedStringToString(bone.Name);
 }
 
-struct UGX_CachedDataAccessory
+struct UGX_CachedDataAccessory //bugged offset for accessories.
 {
 	int FirstBone;
 	int NumberOfBones;
 
 	// section indices that use this accessory
-	PackedArrayHeader SectionIndicesHeader	(IS_64_BIT) <hidden=true>;
+	PackedArrayHeaderLE SectionIndicesHeader	(IS_64_BIT) <hidden=false>;
 
 	local uint64 original_pos;
-	if (SeekToPackedArray(SectionIndicesHeader, original_pos))
+	if (SeekToPackedArrayLE(SectionIndicesHeader, original_pos))
 	{
 		int SectionIndices[SectionIndicesHeader.Length] <optimize=true>;
 
@@ -212,15 +216,25 @@ struct UGX_CachedDataSectionV6 // 0x48
 	}
 };
 
+typedef struct
+{
+    UGX_CachedDataAccessory Accessories[AccessoriesHeader.Length] <optimize=false>;
+} Accessory;
+local string nameAA;
+string GetAccessoryArrayName(Accessory& a)
+{    
+    return nameAA;
+}
+
 typedef struct 
 {
 	UGX_CachedDataHeaderV4 Header;
-	PackedArrayHeader SectionsHeader			(IS_64_BIT) <hidden=true>; // UGX_CachedDataSectionV4[]
-	PackedArrayHeader BonesHeader				(IS_64_BIT) <hidden=true>; // UGX_CachedDataBone[]
-	PackedArrayHeader AccessoriesHeader			(IS_64_BIT) <hidden=true>; // UGX_CachedDataAccessory[]
-	PackedArrayHeader ValidAccessoriesHeader	(IS_64_BIT) <hidden=true>; // int[]
-	PackedArrayHeader BoneBoundsLowHeader		(IS_64_BIT) <hidden=true>; // Vector3F[]
-	PackedArrayHeader BoneBoundsHighHeader		(IS_64_BIT) <hidden=true>; // Vector3F[]
+	PackedArrayHeader SectionsHeader			(IS_64_BIT) <hidden=false>; // UGX_CachedDataSectionV4[]
+	PackedArrayHeader BonesHeader				(IS_64_BIT) <hidden=false>; // UGX_CachedDataBone[]
+	PackedArrayHeader AccessoriesHeader			(IS_64_BIT) <hidden=false>; // UGX_CachedDataAccessory[]
+	PackedArrayHeader ValidAccessoriesHeader	(IS_64_BIT) <hidden=false>; // int[]
+	PackedArrayHeader BoneBoundsLowHeader		(IS_64_BIT) <hidden=false>; // Vector3F[]
+	PackedArrayHeader BoneBoundsHighHeader		(IS_64_BIT) <hidden=false>; // Vector3F[]
 
 	local uint64 original_pos;
 	if (SeekToPackedArray(SectionsHeader, original_pos))
@@ -237,7 +251,8 @@ typedef struct
 	}
 	if (SeekToPackedArray(AccessoriesHeader, original_pos))
 	{
-		UGX_CachedDataAccessory Accessories[AccessoriesHeader.Length] <optimize=true>;
+        SPrintf(nameAA, "struct UGX_CachedDataAccessory Accessories[%i]", AccessoriesHeader.Length); // this is to keep the naming uniform, but allows proper viewing of the section offsets.
+        Accessory Accessories <name=GetAccessoryArrayName>;
 
 		UnSeekToPackedArray(original_pos);
 	}
@@ -293,7 +308,7 @@ typedef struct
 	}
 	if (SeekToPackedArray(AccessoriesHeader, original_pos))
 	{
-		UGX_CachedDataAccessory Accessories[AccessoriesHeader.Length] <optimize=true>;
+		UGX_CachedDataAccessory Accessories[AccessoriesHeader.Length] <optimize=false>;
 
 		UnSeekToPackedArray(original_pos);
 	}
@@ -344,6 +359,7 @@ struct BAABBTree
 	//uint32 Footer;
 };
 
+
 struct ECF_UGX
 {
 	if (FileStream.FileHeader.ID != cUGX_FileID)
@@ -356,7 +372,7 @@ struct ECF_UGX
 		ReadAllChunkBytes(FileStream);
 		return;
 	}
-
+    
 	// TODO: need to look up and unpack CachedData first, before all other chunks
 	kPackedDataBaseOffset = FTell();
 	uint CachedDataSignatureHack <format=hex>;
